@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  config-server:
+    image: tiendoan246/config-server:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: config-server/Dockerfile
+
+  discovery-service:
+    image: tiendoan246/discovery-service:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: discovery-service/Dockerfile
+
+  bank-account:
+    image: tiendoan246/bank-account:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: bank-account/Dockerfile
+
+  bank-card:
+    image: tiendoan246/bank-card:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: bank-card/Dockerfile
+
+  bank-loan:
+    image: tiendoan246/bank-loan:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: bank-loan/Dockerfile
+
+  api-gateway:
+    image: tiendoan246/api-gateway:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+
+  bank-authentication:
+    image: tiendoan246/bank-authentication:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: bank-authentication/Dockerfile

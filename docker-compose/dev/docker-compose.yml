@@ -1,0 +1,253 @@
+version: "3.8"
+
+services:
+  config-server:
+    image: tiendoan246/config-server:latest
+    mem_limit: 1000m
+    ports:
+      - "8071:8071"
+    networks:
+      - bank-network
+
+  grafana:
+    image: "grafana/grafana:latest"
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=password
+    networks:
+      - bank-network
+    depends_on:
+      - prometheus
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - bank-network
+
+  discovery-service:
+    image: tiendoan246/discovery-service:latest
+    mem_limit: 1000m
+    ports:
+      - "8070:8070"
+    networks:
+      - bank-network
+    depends_on:
+      - config-server
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    environment:
+      SPRING.PROFILES.ACTIVE: dev
+      SPRING.CONFIG.IMPORT: configserver:http://config-server:8071
+      SERVER.PORT: 8070
+
+  api-gateway:
+    image: tiendoan246/api-gateway:latest
+    mem_limit: 1000m
+    ports:
+      - "8072:8072"
+    networks:
+      - bank-network
+    depends_on:
+      - mysql-server
+      - config-server
+      - discovery-service
+      - zipkin
+      - rabbitmq
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    environment:
+      SPRING.PROFILES.ACTIVE: dev
+      SPRING.CONFIG.IMPORT: configserver:http://config-server:8071
+      SERVER.PORT: 8072
+      EUREKA.CLIENT.SERVICE-URL.DEFAULTZONE: http://discovery-service:8070/eureka
+      SPRING.RABBITMQ.ADDRESSES: rabbitmq:5672
+
+  bank-account:
+    image: tiendoan246/bank-account:latest
+    mem_limit: 1000m
+    ports:
+      - "8080:8080"
+    networks:
+      - bank-network
+    depends_on:
+      - mysql-server
+      - config-server
+      - discovery-service
+      - zipkin
+      - rabbitmq
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    environment:
+      SPRING.PROFILES.ACTIVE: dev
+      SPRING.CONFIG.IMPORT: configserver:http://config-server:8071
+      SPRING.DATASOURCE.URL: jdbc:mysql://mysql-server:3306/account_db
+      SERVER.PORT: 8080
+      EUREKA.CLIENT.SERVICE-URL.DEFAULTZONE: http://discovery-service:8070/eureka
+      SPRING.RABBITMQ.ADDRESSES: rabbitmq:5672
+
+  bank-card:
+    image: tiendoan246/bank-card:latest
+    mem_limit: 1000m
+    ports:
+      - "9000:9000"
+    networks:
+      - bank-network
+    depends_on:
+      - mysql-server
+      - config-server
+      - discovery-service
+      - zipkin
+      - rabbitmq
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    environment:
+      SPRING.PROFILES.ACTIVE: dev
+      SPRING.CONFIG.IMPORT: configserver:http://config-server:8071
+      SPRING.DATASOURCE.URL: jdbc:mysql://mysql-server:3306/card_db
+      SERVER.PORT: 9000
+      EUREKA.CLIENT.SERVICE-URL.DEFAULTZONE: http://discovery-service:8070/eureka
+      SPRING.RABBITMQ.ADDRESSES: rabbitmq:5672
+
+  bank-loan:
+    image: tiendoan246/bank-loan:latest
+    mem_limit: 1000m
+    ports:
+      - "8090:8090"
+    networks:
+      - bank-network
+    depends_on:
+      - mysql-server
+      - config-server
+      - discovery-service
+      - zipkin
+      - rabbitmq
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    environment:
+      SPRING.PROFILES.ACTIVE: dev
+      SPRING.CONFIG.IMPORT: configserver:http://config-server:8071
+      SPRING.DATASOURCE.URL: jdbc:mysql://mysql-server:3306/loan_db
+      SERVER.PORT: 8090
+      EUREKA.CLIENT.SERVICE-URL.DEFAULTZONE: http://discovery-service:8070/eureka
+      SPRING.RABBITMQ.ADDRESSES: rabbitmq:5672
+
+  bank-authentication:
+    image: tiendoan246/bank-authentication:latest
+    mem_limit: 1000m
+    ports:
+      - "8088:8088"
+    networks:
+      - bank-network
+    depends_on:
+      - mysql-server
+      - config-server
+      - discovery-service
+      - zipkin
+      - rabbitmq
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    environment:
+      SPRING.PROFILES.ACTIVE: dev
+      SPRING.CONFIG.IMPORT: configserver:http://config-server:8071
+      SPRING.DATASOURCE.URL: jdbc:mysql://mysql-server:3306/user_db
+      SERVER.PORT: 8088
+      EUREKA.CLIENT.SERVICE-URL.DEFAULTZONE: http://discovery-service:8070/eureka
+      SPRING.RABBITMQ.ADDRESSES: rabbitmq:5672
+
+  mysql-server:
+    image: mysql_local:latest
+    mem_limit: 1500m
+    ports:
+      - "3306:3306"
+    networks:
+      - bank-network
+    restart: always
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        delay: 1m30s
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 1m30s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 100M
+    ports:
+      - 9411:9411
+    depends_on:
+      - rabbitmq
+    networks:
+      - bank-network
+    environment:
+      RABBIT_CONCURRENCY: 1
+      RABBIT_CONNECTION_TIMEOUT: 60000
+      RABBIT_QUEUE: zipkin
+      RABBIT_ADDRESSES: rabbitmq
+      RABBIT_PASSWORD: bitnami
+      RABBIT_USER: user
+      RABBIT_VIRTUAL_HOST: /
+      RABBIT_USE_SSL: "false"
+
+  rabbitmq:
+    image: docker.io/bitnami/rabbitmq:3.9
+    ports:
+      - '4369:4369'
+      - '5551:5551'
+      - '5552:5552'
+      - '5672:5672'
+      - '25672:25672'
+      - '15672:15672'
+    environment:
+      - RABBITMQ_SECURE_PASSWORD=yes
+    volumes:
+      - 'rabbitmq_data:/bitnami/rabbitmq/mnesia'
+    networks:
+      - bank-network
+
+volumes:
+  rabbitmq_data:
+    driver: local
+
+networks:
+  bank-network:
