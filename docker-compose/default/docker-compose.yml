@@ -185,7 +185,7 @@ services:
       SPRING.RABBITMQ.ADDRESSES: rabbitmq:5672
 
   mysql-server:
-    image: mysql_local:latest
+    image: tiendoan246/mysql_local:latest
     mem_limit: 1500m
     ports:
       - "3306:3306"
